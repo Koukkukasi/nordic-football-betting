@@ -1,0 +1,62 @@
+{
+  "name": "nordic-football-betting",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001 --turbopack",
+    "build": "next build",
+    "start": "next start --port $PORT",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:setup": "prisma generate && prisma migrate dev",
+    "validate-env": "node scripts/validate-environment.js",
+    "generate-secrets": "bash scripts/generate-secrets.sh",
+    "generate-secrets:win": "scripts\\generate-secrets.bat",
+    "start:websocket": "node src/lib/websocket-server.js",
+    "postinstall": "prisma generate",
+    "render-build": "prisma generate && prisma db push && next build"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.10.0",
+    "@next-auth/prisma-adapter": "^1.0.7",
+    "@prisma/client": "^6.14.0",
+    "@supabase/ssr": "^0.0.10",
+    "@supabase/supabase-js": "^2.39.3",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.2",
+    "cheerio": "^1.0.0-rc.12",
+    "clsx": "^2.0.0",
+    "dotenv": "^17.2.1",
+    "framer-motion": "^12.23.12",
+    "lucide-react": "^0.263.1",
+    "next": "15.0.3",
+    "next-auth": "^4.24.11",
+    "react": "19.0.0-rc-66855b96-20241106",
+    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "recharts": "^3.1.2",
+    "stripe": "^14.10.0",
+    "tailwind-merge": "^2.2.0",
+    "tailwindcss": "^3.4.0",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0-alpha.33",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8",
+    "eslint-config-next": "15.0.3",
+    "postcss": "^8",
+    "prisma": "^6.14.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5"
+  }
+}

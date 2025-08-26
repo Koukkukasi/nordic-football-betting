@@ -1,0 +1,63 @@
+# Render Deployment Configuration
+# Deploy to Render: https://dashboard.render.com/select-repo
+
+services:
+  # Main Next.js Application
+  - type: web
+    name: nordic-football-betting
+    runtime: node
+    region: frankfurt # EU region for Nordic users
+    plan: free # Start with free, upgrade as needed
+    buildCommand: |
+      npm install
+      npx prisma generate
+      npx prisma db push
+      npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Set manually in Render dashboard
+      - key: DIRECT_URL
+        sync: false
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_API_FOOTBALL_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+    healthCheckPath: /api/health
+    
+  # WebSocket Server (Optional - for live betting)
+  - type: web
+    name: nordic-betting-websocket
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:websocket
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: WEBSOCKET_PORT
+        value: 3001
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+
+# Database is handled by Supabase
+# No need for Render database

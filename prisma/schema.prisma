@@ -1,0 +1,538 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User Management
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String
+  
+  // Authentication & Security
+  isVerified        Boolean   @default(false)
+  verificationToken String?
+  verificationExpiry DateTime?
+  passwordResetToken String?
+  passwordResetExpiry DateTime?
+  lastPasswordChange DateTime?
+  role              UserRole  @default(USER)
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  
+  // Virtual Currency & Economy
+  balance           Int       @default(1000) // Legacy field
+  betPoints         Int       @default(10000)
+  diamonds          Int       @default(50)
+  level             Int       @default(1)
+  experience        Int       @default(0) // Legacy field
+  xp                Int       @default(0)
+  
+  // VIP & Monetization
+  vipStatus         VipTier   @default(FREE)
+  vipExpiresAt      DateTime?
+  subscriptionId    String?   // Stripe subscription ID
+  lastAdWatch       DateTime?
+  emergencyGrantsUsed Int     @default(0)
+  
+  // Profile
+  bio               String?
+  avatar            String?   // Profile picture URL
+  country           String?   // ISO country code
+  favoriteTeamId    String?
+  favoriteTeam      Team?     @relation(fields: [favoriteTeamId], references: [id])
+  profileAvatar     String?   // Legacy field
+  profileBanner     String?
+  notificationPreferences String? // JSON
+  privacySettings   String?   // JSON
+  
+  // Stats
+  totalBets         Int       @default(0)
+  wonBets           Int       @default(0) // Legacy field
+  lostBets          Int       @default(0) // Legacy field
+  totalWins         Int       @default(0)
+  totalStaked       Int       @default(0)
+  totalWagered      Int       @default(0) // Legacy field
+  totalWon          Int       @default(0)
+  biggestWin        Int       @default(0)
+  streak            Int       @default(0) // Legacy field
+  currentStreak     Int       @default(0)
+  bestStreak        Int       @default(0)
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+  
+  // Relations
+  bets              Bet[]
+  liveBets          LiveBet[]
+  achievements      UserAchievement[]
+  transactions      Transaction[]
+  challengeProgress ChallengeProgress[]
+  notifications     Notification[]
+  stats             UserStats?
+  
+  @@index([email])
+  @@index([username])
+}
+
+// Teams & Leagues
+model League {
+  id        String   @id @default(cuid())
+  name      String
+  country   String   // Finland, Sweden
+  tier      Int      // 1 = top tier, 2 = second tier, etc.
+  shortName String?
+  logoUrl   String?
+  
+  teams     Team[]
+  matches   Match[]
+  
+  @@unique([name, country])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  shortName   String
+  city        String
+  country     String
+  venue       String?
+  logoUrl     String?
+  isDerbyTeam Boolean  @default(false)
+  
+  leagueId    String
+  league      League   @relation(fields: [leagueId], references: [id])
+  
+  homeMatches Match[]  @relation("HomeTeam")
+  awayMatches Match[]  @relation("AwayTeam")
+  favoritedBy User[]
+  
+  @@index([leagueId])
+}
+
+// Matches & Odds
+model Match {
+  id           String   @id @default(cuid())
+  externalId   String?  @unique // For API integration
+  
+  leagueId     String
+  league       League   @relation(fields: [leagueId], references: [id])
+  
+  homeTeamId   String
+  homeTeam     Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  
+  awayTeamId   String
+  awayTeam     Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  
+  startTime    DateTime
+  status       MatchStatus @default(SCHEDULED)
+  
+  // Scores
+  homeScore    Int?
+  awayScore    Int?
+  minute       Int?     // Current minute for live matches
+  
+  // Features
+  isDerby      Boolean  @default(false)
+  isFeatured   Boolean  @default(false)
+  
+  // Relations
+  odds         Odds[]
+  events       MatchEvent[]
+  selections   BetSelection[]
+  liveBets     LiveBet[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([startTime])
+  @@index([status])
+  @@index([leagueId])
+}
+
+model Odds {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id])
+  
+  market    String   @default("MATCH_RESULT")
+  
+  // Standard odds (stored as integers, divide by 100 for decimal)
+  homeWin   Int?     // 185 = 1.85
+  draw      Int?     // 340 = 3.40
+  awayWin   Int?     // 420 = 4.20
+  
+  // Over/Under
+  over25    Int?
+  under25   Int?
+  
+  // Both Teams to Score
+  bttsYes   Int?
+  bttsNo    Int?
+  
+  // Enhanced odds (F2P feature)
+  enhancedHomeWin Int?
+  enhancedDraw    Int?
+  enhancedAwayWin Int?
+  
+  // Live betting odds
+  nextGoalHome    Int?
+  nextGoalAway    Int?
+  nextGoalNone    Int?
+  nextCornerHome  Int?
+  nextCornerAway  Int?
+  nextCardHome    Int?
+  nextCardAway    Int?
+  
+  // Live Over/Under (adjusts during match)
+  liveOver15      Int?
+  liveUnder15     Int?
+  liveOver35      Int?
+  liveUnder35     Int?
+  
+  // Current match context
+  isLive          Boolean  @default(false)
+  lastUpdatedMinute Int?   // Match minute when odds were last updated
+  
+  updatedAt DateTime @updatedAt
+  
+  @@unique([matchId, market])
+  @@index([matchId])
+}
+
+// Betting
+model Bet {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  betType         BetType  @default(PITKAVETO)
+  stake           Int
+  totalOdds       Float
+  potentialWin    Int
+  
+  status          BetStatus @default(PENDING)
+  settledAt       DateTime?
+  winAmount       Int?
+  
+  // Diamond boost
+  diamondBoost    Boolean  @default(false)
+  diamondsUsed    Int      @default(0)
+  
+  selections      BetSelection[]
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model BetSelection {
+  id          String   @id @default(cuid())
+  betId       String
+  bet         Bet      @relation(fields: [betId], references: [id])
+  
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id])
+  
+  market      String   @default("MATCH_RESULT")
+  selection   String   // "HOME", "DRAW", "AWAY", "OVER", "UNDER", etc.
+  odds        Float
+  
+  result      SelectionResult? @default(PENDING)
+  
+  @@index([betId])
+  @@index([matchId])
+}
+
+model LiveBet {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  matchId         String
+  match           Match    @relation(fields: [matchId], references: [id])
+  
+  market          String
+  selection       String
+  odds            Float
+  enhancedOdds    Float?   // F2P enhanced odds
+  stake           Int
+  potentialWin    Int
+  
+  placedAtMinute  Int      // Match minute when bet was placed
+  matchScore      Json?    // Score at time of bet placement
+  
+  status          BetStatus @default(PENDING)
+  settledAt       DateTime?
+  winAmount       Int?
+  
+  // Cash out
+  cashOutAvailable Boolean @default(false)
+  cashOutValue     Int?
+  cashedOut        Boolean @default(false)
+  cashOutAt        DateTime?
+  
+  // Diamond rewards (2x for live betting)
+  diamondReward    Int      @default(0)
+  diamondAwarded   Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([userId])
+  @@index([matchId])
+  @@index([status])
+  @@index([cashOutAvailable])
+}
+
+// Match Events for Live Betting
+model MatchEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id])
+  
+  minute    Int
+  eventType EventType
+  team      String?  // "HOME" or "AWAY"
+  player    String?
+  details   Json?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([matchId])
+  @@index([eventType])
+}
+
+// Achievements & Progression
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  category    AchievementCategory
+  tier        Int      @default(1) // Bronze=1, Silver=2, Gold=3
+  
+  // Requirements
+  requirement Json
+  reward      Json     // { betPoints: 1000, diamonds: 10, xp: 500 }
+  
+  iconUrl     String?
+  
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  
+  progress      Int      @default(0)
+  completed     Boolean  @default(false)
+  completedAt   DateTime?
+  
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+// Daily Challenges
+model Challenge {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  
+  startDate   DateTime
+  endDate     DateTime
+  
+  requirement Json     // { type: "WIN_BETS", count: 3, minOdds: 2.0 }
+  reward      Json     // { betPoints: 500, diamonds: 5, xp: 100 }
+  
+  isDaily     Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  
+  progress    ChallengeProgress[]
+}
+
+model ChallengeProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  claimedAt   DateTime?
+  
+  @@unique([userId, challengeId])
+  @@index([userId])
+}
+
+// Transactions
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  type        TransactionType
+  amount      Int
+  currency    Currency @default(BETPOINTS)
+  
+  description String?
+  reference   String?  // Bet ID, Achievement ID, etc.
+  
+  balanceBefore Int
+  balanceAfter  Int
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Notifications
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([read])
+}
+
+// Enums
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  CANCELLED
+  POSTPONED
+}
+
+enum BetType {
+  PITKAVETO
+  SINGLE
+  LIVE
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  VOID
+  CASHED_OUT
+}
+
+enum SelectionResult {
+  PENDING
+  WON
+  LOST
+  VOID
+}
+
+enum EventType {
+  GOAL
+  OWN_GOAL
+  PENALTY
+  YELLOW_CARD
+  RED_CARD
+  SUBSTITUTION
+  VAR_DECISION
+  HALF_TIME
+  FULL_TIME
+}
+
+enum AchievementCategory {
+  BETTING
+  WINNING
+  LOYALTY
+  SPECIAL
+  SOCIAL
+}
+
+enum TransactionType {
+  BET_PLACED
+  BET_WON
+  BET_REFUND
+  DAILY_BONUS
+  ACHIEVEMENT_REWARD
+  CHALLENGE_REWARD
+  LEVEL_UP_BONUS
+  PURCHASE
+  DIAMOND_PURCHASE
+  CASH_OUT
+  AD_WATCH
+  AD_WATCH_PENDING
+  EMERGENCY_GRANT
+  VIP_BONUS
+}
+
+enum Currency {
+  BETPOINTS
+  DIAMONDS
+}
+
+enum NotificationType {
+  BET_SETTLED
+  ACHIEVEMENT_UNLOCKED
+  CHALLENGE_COMPLETED
+  LEVEL_UP
+  MATCH_STARTING
+  PROMO
+  SYSTEM
+}
+
+enum VipTier {
+  FREE
+  VIP_MONTHLY
+  SEASON_PASS
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+// User Statistics
+model UserStats {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id])
+  dailyLoginStreak  Int      @default(0)
+  maxWinStreak      Int      @default(0)
+  maxOddsWon        Float    @default(1)
+  totalProfit       Int      @default(0)
+  favoriteTeam      String?
+  favoriteMarket    String?
+  lastActive        DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
