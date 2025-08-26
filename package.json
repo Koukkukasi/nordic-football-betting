@@ -17,8 +17,8 @@
     "generate-secrets": "bash scripts/generate-secrets.sh",
     "generate-secrets:win": "scripts\\generate-secrets.bat",
     "start:websocket": "node src/lib/websocket-server.js",
-    "postinstall": "npx prisma generate || true",
-    "render-build": "npx prisma generate && npx prisma db push && next build"
+    "postinstall": "prisma generate || true",
+    "render-build": "prisma generate && prisma db push && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
