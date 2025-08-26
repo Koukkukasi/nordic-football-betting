@@ -21,6 +21,16 @@ echo "Pushing database schema to Supabase..."
 
 # Build Next.js application
 echo "Building Next.js application..."
-npm run build
+./node_modules/.bin/next build || npx next build || npm run build
+
+echo "Verifying build artifacts..."
+if [ -d ".next" ]; then
+    echo "Build artifacts found in .next directory"
+    ls -la .next/
+else
+    echo "WARNING: .next directory not found!"
+    echo "Attempting alternative build..."
+    npm run build
+fi
 
 echo "Build complete!"
